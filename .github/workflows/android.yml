@@ -2,38 +2,69 @@ name: Build Android APK
 
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   build:
+    name: Build Subscription Info APK
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
 
+    steps:
+      # 1. Checkout source code
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # 2. Install Java 17
       - name: Set up Java 17
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
+      # 3. Install Android SDK
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          # Current command-line tools build number
+          cmdline-tools-version: 14742923
 
-      - name: Install Android SDK 35
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          # Accept SDK licenses automatically
+          accept-android-sdk-licenses: "true"
 
-      - name: Set up Gradle 8.9
+          # Don't print long license text in logs
+          log-accepted-android-sdk-licenses: "false"
+
+          # Required Android packages
+          packages: >-
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+
+      # 4. Configure Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '8.9'
+          gradle-version: "8.9"
 
-      - name: Build and test
+      # 5. Verify Java / Android / Gradle
+      - name: Verify build environment
         run: |
-          gradle --no-daemon assembleDebug test
+          java -version
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          sdkmanager --version
+          gradle --version
 
+      # 6. Build Debug APK
+      - name: Build APK
+        run: |
+          gradle --no-daemon clean assembleDebug
+
+      # 7. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: subscription-info-viewer-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
